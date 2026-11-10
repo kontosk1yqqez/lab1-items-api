@@ -33,7 +33,7 @@ docker run -d -p 8000:8000 --name items-api items-api
 Готовий образ з Docker Hub:
 
 ```bash
-docker run -d -p 8000:8000 DOCKERHUB_USER/items-api:latest
+docker run -d -p 8000:8000 kontorsk1yqqez/items-api:latest
 ```
 
 ## Запуск тестів

@@ -10,7 +10,7 @@ pool:
 variables:
   pythonVersion: '3.12'
   dockerRegistryServiceConnection: 'dockerhub-connection'   # назва Service Connection в Azure DevOps
-  imageRepository: 'DOCKERHUB_USER/items-api'                # <логін Docker Hub>/<репозиторій>
+  imageRepository: 'kontorsk1yqqez/items-api'                # <логін Docker Hub>/<репозиторій>
   tag: '$(Build.BuildId)'
 
 stages:
