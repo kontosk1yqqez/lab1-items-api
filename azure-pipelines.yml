@@ -4,11 +4,11 @@ trigger:
     include:
       - main
 
+# Self-hosted агент (Linux, GitHub Codespaces) у пулі Default
 pool:
-  vmImage: ubuntu-latest
+  name: Default
 
 variables:
-  pythonVersion: '3.12'
   dockerRegistryServiceConnection: 'dockerhub-connection'   # назва Service Connection в Azure DevOps
   imageRepository: 'kontorsk1yqqez/items-api'                # <логін Docker Hub>/<репозиторій>
   tag: '$(Build.BuildId)'
@@ -19,13 +19,10 @@ stages:
     jobs:
       - job: Build
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '$(pythonVersion)'
           - script: |
-              python -m pip install --upgrade pip
-              pip install -r requirements-dev.txt
-              python -m compileall app
+              python3 -m pip install --upgrade pip
+              python3 -m pip install -r requirements-dev.txt
+              python3 -m compileall app
             displayName: 'Встановлення залежностей і компіляція'
 
   - stage: Test
@@ -34,12 +31,9 @@ stages:
     jobs:
       - job: Test
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '$(pythonVersion)'
           - script: |
-              pip install -r requirements-dev.txt
-              python -m pytest --junitxml=test-results.xml
+              python3 -m pip install -r requirements-dev.txt
+              python3 -m pytest --junitxml=test-results.xml
             displayName: 'Запуск pytest'
           - task: PublishTestResults@2
             condition: succeededOrFailed()
