@@ -1,0 +1,74 @@
+# CI pipeline: збирання, тести, Docker-образ і публікація в Docker Hub
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  pythonVersion: '3.12'
+  dockerRegistryServiceConnection: 'dockerhub-connection'   # назва Service Connection в Azure DevOps
+  imageRepository: 'DOCKERHUB_USER/items-api'                # <логін Docker Hub>/<репозиторій>
+  tag: '$(Build.BuildId)'
+
+stages:
+  - stage: Build
+    displayName: 'Збирання проєкту'
+    jobs:
+      - job: Build
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements-dev.txt
+              python -m compileall app
+            displayName: 'Встановлення залежностей і компіляція'
+
+  - stage: Test
+    displayName: 'Unit-тести'
+    dependsOn: Build
+    jobs:
+      - job: Test
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+          - script: |
+              pip install -r requirements-dev.txt
+              python -m pytest --junitxml=test-results.xml
+            displayName: 'Запуск pytest'
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFiles: 'test-results.xml'
+              testRunTitle: 'Unit tests'
+
+  - stage: Docker
+    displayName: 'Docker-образ'
+    dependsOn: Test
+    jobs:
+      - job: Docker
+        steps:
+          - task: Docker@2
+            displayName: 'Збирання Docker-образу і присвоєння тегів'
+            inputs:
+              command: build
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              dockerfile: 'Dockerfile'
+              tags: |
+                $(tag)
+                latest
+          - task: Docker@2
+            displayName: 'Публікація Docker-образу в Docker Hub'
+            inputs:
+              command: push
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              tags: |
+                $(tag)
+                latest
