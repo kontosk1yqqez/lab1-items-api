@@ -43,8 +43,27 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-## CI
+## CI (GitHub Actions)
 
-Файл `azure-pipelines.yml`: pipeline запускається після push у гілку `main` і виконує етапи
-збирання проєкту, запуску unit-тестів, збирання Docker-образу, присвоєння тегів (`latest` і номер збірки)
-та публікації образу в Docker Hub.
+Файли в `.github/workflows/`:
+
+- `ci.yml` — основний workflow. Запускається після push у `main`, `feature/**`, `bugfix/**`
+  (зміни лише в `docs/` або `README.md` CI не запускають). Jobs:
+  - `build-n-test` — встановлення залежностей, компіляція, unit-тести (pytest), звіт `test-results.xml` в артефактах;
+  - `docker-pack-n-push` — виклик reusable workflow збирання Docker-образу.
+- `docker-pack-n-push.yml` — reusable workflow (`workflow_call`) з параметрами `repository`, `tag`,
+  `context`, `dockerfile`, `push`, `artifact-name`, `retention-days`.
+  Для гілки `main` образ публікується в Docker Hub, для інших гілок — зберігається як `.tar` в артефактах запуску.
+
+Необхідні GitHub Secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Значення |
+|---|---|
+| `DOCKERHUB_USERNAME` | логін Docker Hub |
+| `DOCKERHUB_TOKEN` | Personal Access Token Docker Hub (Read & Write) |
+
+Опційна змінна `DOCKERHUB_REPOSITORY` (Variables) перевизначає репозиторій образу (за замовчуванням `kontorsk1yqqez/items-api`).
+
+Завантажити образ з артефакту гілки: `docker load -i items-api-image.tar`.
+
+Попередній CI для Azure DevOps (лабораторна №1) — файл `azure-pipelines.yml`.

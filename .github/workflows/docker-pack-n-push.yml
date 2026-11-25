@@ -1,0 +1,101 @@
+# Reusable workflow: збирання Docker-образу та публікація в Docker Hub.
+# Якщо push == true — образ завантажується в Docker Hub,
+# інакше — зберігається як tar-архів в артефактах workflow.
+name: docker-pack-n-push
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        description: "Назва репозиторію Docker Hub (<user>/<repo>)"
+        type: string
+        required: true
+      tag:
+        description: "Тег образу"
+        type: string
+        required: false
+        default: latest
+      context:
+        description: "Контекст збирання Docker"
+        type: string
+        required: false
+        default: .
+      dockerfile:
+        description: "Шлях до Dockerfile відносно контексту"
+        type: string
+        required: false
+        default: Dockerfile
+      push:
+        description: "true — push у Docker Hub, false — зберегти образ в артефактах"
+        type: boolean
+        required: false
+        default: false
+      artifact-name:
+        description: "Назва артефакту з образом (коли push == false)"
+        type: string
+        required: false
+        default: docker-image
+      retention-days:
+        description: "Скільки днів зберігати артефакт"
+        type: number
+        required: false
+        default: 7
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+    outputs:
+      image:
+        description: "Повне ім'я образу з тегом"
+        value: ${{ jobs.docker-pack-n-push.outputs.image }}
+
+jobs:
+  docker-pack-n-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image name
+        id: meta
+        run: echo "image=${{ inputs.repository }}:${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push to Docker Hub
+        if: ${{ inputs.push }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.context }}/${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+
+      - name: Build image to tar
+        if: ${{ !inputs.push }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.context }}/${{ inputs.dockerfile }}
+          push: false
+          tags: ${{ steps.meta.outputs.image }}
+          outputs: type=docker,dest=${{ runner.temp }}/${{ inputs.artifact-name }}.tar
+
+      - name: Upload image artifact
+        if: ${{ !inputs.push }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ runner.temp }}/${{ inputs.artifact-name }}.tar
+          retention-days: ${{ inputs.retention-days }}
