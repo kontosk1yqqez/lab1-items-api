@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "items-app.api.fullname" . }}-cm
+  labels:
+    {{- include "items-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  DB_HOST: {{ include "items-app.db.fullname" . | quote }}
+  DB_PORT: {{ .Values.db.port | quote }}
+  {{- range $key, $value := .Values.api.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

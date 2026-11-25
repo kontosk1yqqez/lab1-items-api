@@ -1,0 +1,18 @@
+{{- if .Values.db.persistence.createPersistentVolume }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "items-app.db.fullname" . }}-pv-{{ .Release.Namespace }}
+  labels:
+    {{- include "items-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: db
+spec:
+  capacity:
+    storage: {{ .Values.db.persistence.size }}
+  accessModes: [{{ .Values.db.persistence.accessMode }}]
+  persistentVolumeReclaimPolicy: {{ .Values.db.persistence.reclaimPolicy }}
+  storageClassName: {{ include "items-app.storageClassName" . }}
+  hostPath:
+    path: {{ .Values.db.persistence.hostPath }}/{{ .Release.Namespace }}-{{ .Release.Name }}
+    type: DirectoryOrCreate
+{{- end }}

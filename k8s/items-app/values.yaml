@@ -1,0 +1,83 @@
+# Значення за замовчуванням для чарта items-app.
+# Перевизначаються файлом середовища (напр. values.lab.yaml) або --set.
+
+nameOverride: ""
+fullnameOverride: ""
+
+imageRegistry: docker.io/kontorsk1yqqez   # спільний префікс образів
+
+api:
+  name: api
+  replicaCount: 2
+  image:
+    repository: items-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  containerPort: 8000
+  service:
+    type: NodePort        # як на діаграмі: users-api-svc of NodeType
+    port: 8080
+    nodePort: 32010
+  env:
+    LOG_LEVEL: info
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+frontend:
+  name: frontend
+  replicaCount: 1
+  image:
+    repository: items-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  containerPort: 80
+  # Адреса API в браузері: відносний шлях, Ingress спрямовує /api до backend
+  apiBaseUrl: /api
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { cpu: 200m, memory: 64Mi }
+
+migrator:
+  name: db-migration
+  enabled: true
+  image:
+    repository: items-migrator
+    tag: latest
+    pullPolicy: IfNotPresent
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+
+db:
+  name: db
+  image:
+    repository: postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+  port: 5432
+  database: items
+  username: items
+  # Для реальних середовищ передавайте пароль через --set db.password=... або existingSecret
+  password: change-me
+  existingSecret: ""
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  persistence:
+    size: 1Gi
+    accessMode: ReadWriteOnce
+    # true — чарт створює власні StorageClass і PersistentVolume (hostPath), як на діаграмі
+    createStorageClass: true
+    createPersistentVolume: true
+    storageClassName: ""          # якщо createStorageClass=false — ім'я наявного класу (напр. standard)
+    hostPath: /var/local-data/items-db
+    reclaimPolicy: Retain
+
+ingress:
+  enabled: true
+  className: nginx
+  host: webapp.lab.test
+  annotations: {}

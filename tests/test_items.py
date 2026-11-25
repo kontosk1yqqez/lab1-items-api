@@ -1,14 +1,32 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from app.main import app, reset_storage
+from app.db import Base, get_session, make_engine
+from app.main import app
 
+# Тести працюють з окремою in-memory SQLite базою
+engine = make_engine("sqlite://", poolclass=StaticPool)
+TestingSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def override_session():
+    session = TestingSession()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+app.dependency_overrides[get_session] = override_session
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
 def clean_storage():
-    reset_storage()
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
 
 
 def create(name="Ноутбук", price=100.0):
@@ -60,3 +78,9 @@ def test_openapi_available():
     response = client.get("/openapi.json")
     assert response.status_code == 200
     assert "/api/items" in response.json()["paths"]
+
+
+def test_healthz():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
