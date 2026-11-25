@@ -107,6 +107,69 @@ helm test lab -n webapp-lab --logs
 
 Видалення: `helm uninstall lab -n webapp-lab` (PV з політикою Retain залишається, видаляється вручну).
 
+## Резервне копіювання PostgreSQL: DatabaseBackup (ЛР5)
+
+Власний ресурс `DatabaseBackup` (`backup.example.com/v1alpha1`) описує розклад резервного копіювання,
+Secret з параметрами підключення та PVC для архівів. Контролер `backup-controller/` (Python, клієнт `kubernetes`)
+для кожного `DatabaseBackup` підтримує однойменний `CronJob`; вбудований контролер CronJob за розкладом
+створює `Job`, контролер Job — `Pod`, у якому `pg_dump -Fc` записує архів у PVC.
+
+| Файл | Призначення |
+|---|---|
+| `k8s/backup/databasebackup-crd.yaml` | CRD `databasebackups.backup.example.com` (Namespaced, v1alpha1, валідація spec) |
+| `k8s/backup/databasebackup.yaml` | приклад Custom Resource `users-db-backup` |
+| `k8s/backup/databasebackup-invalid.yaml` | копія без `spec.schedule` для перевірки валідації |
+| `k8s/backup/secret-users-db-connection.yaml` | Secret з демонстраційними значеннями (PGHOST — Service БД з ЛР4) |
+| `k8s/backup/pvc-postgres-backups.yaml` | PVC для архівів (StorageClass `standard`) |
+| `k8s/backup/rbac.yaml` | ServiceAccount, Role, RoleBinding з мінімальними правами |
+| `k8s/backup/controller-deployment.yaml` | Deployment контролера (`serviceAccountName: databasebackup-controller`) |
+| `k8s/backup/restore-check-pod.yaml` | допоміжний Pod з PostgreSQL-клієнтом для перевірки архівів |
+| `backup-controller/` | код контролера, `cronjob_spec.py` (побудова CronJob), Dockerfile |
+
+### Підготовка Secret
+
+Значення в `secret-users-db-connection.yaml` — демонстраційні для стенда kind (БД з релізу `lab` ЛР4).
+Для іншого середовища створіть Secret командою, не зберігаючи пароль у репозиторії:
+
+```bash
+kubectl -n demo create secret generic users-db-connection \
+  --from-literal=PGHOST=lab-items-app-db.webapp-lab.svc.cluster.local --from-literal=PGPORT=5432 \
+  --from-literal=PGDATABASE=items --from-literal=PGUSER=items --from-literal=PGPASSWORD=<пароль>
+```
+
+### Встановлення
+
+```bash
+kubectl apply -f k8s/backup/databasebackup-crd.yaml
+kubectl wait --for=condition=Established crd/databasebackups.backup.example.com
+kubectl apply -f k8s/backup/00-namespace.yaml -f k8s/backup/secret-users-db-connection.yaml -f k8s/backup/pvc-postgres-backups.yaml
+
+docker build -t kontorsk1yqqez/databasebackup-controller:latest backup-controller
+kind load docker-image kontorsk1yqqez/databasebackup-controller:latest --name webapp   # або образ з Docker Hub
+kubectl apply -f k8s/backup/rbac.yaml -f k8s/backup/controller-deployment.yaml
+kubectl apply -f k8s/backup/databasebackup.yaml
+
+kubectl get databasebackup,cronjob -n demo
+```
+
+### Перевірка
+
+```bash
+kubectl create --dry-run=server -f k8s/backup/databasebackup-invalid.yaml   # spec.schedule: Required value
+kubectl create job backup-manual --from=cronjob/users-db-backup -n demo
+kubectl wait --for=condition=complete job/backup-manual -n demo --timeout=120s
+kubectl logs job/backup-manual -n demo                                        # шлях до архіву .dump
+kubectl apply -f k8s/backup/restore-check-pod.yaml
+kubectl -n demo exec backup-inspector -- pg_restore --list /backups/<файл>.dump
+kubectl -n demo exec backup-inspector -- createdb restore_check
+kubectl -n demo exec backup-inspector -- pg_restore --no-owner -d restore_check /backups/<файл>.dump
+
+sa=system:serviceaccount:demo:databasebackup-controller
+kubectl auth can-i list databasebackups.backup.example.com -n demo --as=$sa   # yes
+kubectl auth can-i create cronjobs.batch -n demo --as=$sa                     # yes
+kubectl auth can-i list secrets -n demo --as=$sa                              # no
+```
+
 ## CI (GitHub Actions)
 
 Файли в `.github/workflows/`:
@@ -114,7 +177,7 @@ helm test lab -n webapp-lab --logs
 - `ci.yml` — запускається після push у `main`, `feature/**`, `bugfix/**`
   (зміни лише в `docs/` або `README.md` CI не запускають). Jobs:
   - `build-n-test` — встановлення залежностей, компіляція, unit-тести (pytest), звіт `test-results.xml` в артефактах;
-  - `docker-pack-n-push` — matrix із трьох образів (api, frontend, migrator), кожен збирається reusable workflow;
+  - `docker-pack-n-push` — matrix із чотирьох образів (api, frontend, migrator, databasebackup-controller), кожен збирається reusable workflow;
   - `helm-pack` — `helm lint`, `helm template`, `helm package`; архів чарта зберігається в артефакті `helm-chart`.
 - `docker-pack-n-push.yml` — reusable workflow (`workflow_call`) з параметрами `repository`, `tag`,
   `context`, `dockerfile`, `push`, `artifact-name`, `retention-days`.

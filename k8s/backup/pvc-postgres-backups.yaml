@@ -1,0 +1,12 @@
+# Окремий PVC для архівів; використовується наявний StorageClass кластера (standard у kind)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: demo
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 1Gi
