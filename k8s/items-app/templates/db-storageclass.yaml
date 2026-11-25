@@ -1,0 +1,11 @@
+{{- if .Values.db.persistence.createStorageClass }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ include "items-app.storageClassName" . }}
+  labels:
+    {{- include "items-app.labels" . | nindent 4 }}
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: {{ .Values.db.persistence.reclaimPolicy }}
+{{- end }}

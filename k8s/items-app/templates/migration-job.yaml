@@ -1,0 +1,37 @@
+{{- if .Values.migrator.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Ревізія в імені — новий Job при кожному helm upgrade (spec Job незмінний)
+  name: {{ include "items-app.db.fullname" . }}-migration-{{ .Release.Revision }}
+  labels:
+    {{- include "items-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.migrator.name }}
+spec:
+  backoffLimit: {{ .Values.migrator.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migrator.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "items-app.selector" (dict "ctx" $ "component" .Values.migrator.name) | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-db
+          image: {{ printf "%s:%s" .Values.db.image.repository .Values.db.image.tag }}
+          command:
+            - sh
+            - -c
+            - until pg_isready -h {{ include "items-app.db.fullname" . }} -p {{ .Values.db.port }}; do echo waiting for db; sleep 2; done
+      containers:
+        - name: migrator
+          image: {{ include "items-app.image" (dict "ctx" $ "image" .Values.migrator.image) }}
+          imagePullPolicy: {{ .Values.migrator.image.pullPolicy }}
+          args: ["upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "items-app.db.secretName" . }}
+                  key: DATABASE_URL
+{{- end }}

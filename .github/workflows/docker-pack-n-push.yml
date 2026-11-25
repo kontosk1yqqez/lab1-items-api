@@ -84,6 +84,7 @@ jobs:
 
       - name: Build image to tar
         if: ${{ !inputs.push }}
+        # для гілок, крім main, образ не публікується, а зберігається як артефакт
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.context }}

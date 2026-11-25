@@ -1,0 +1,11 @@
+# Налаштування середовища "lab" (локальний kind-кластер з NGINX Ingress)
+imageRegistry: docker.io/kontorsk1yqqez
+api:
+  replicaCount: 2
+ingress:
+  enabled: true
+  className: nginx
+  # nip.io резолвиться в 127.0.0.1 — не потрібно редагувати hosts
+  host: webapp.127.0.0.1.nip.io
+db:
+  password: lab-password

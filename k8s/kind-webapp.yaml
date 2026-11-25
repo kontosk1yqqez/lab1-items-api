@@ -1,0 +1,19 @@
+# Кластер kind для ЛР4: одна нода з портами 80/443 для NGINX Ingress
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: webapp
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    failCgroupV1: false
+nodes:
+  - role: control-plane
+    labels:
+      ingress-ready: "true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP

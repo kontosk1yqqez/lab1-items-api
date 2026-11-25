@@ -1,0 +1,15 @@
+Реліз {{ .Release.Name }} (чарт {{ .Chart.Name }}-{{ .Chart.Version }}, застосунок {{ .Chart.AppVersion }}) встановлено в namespace {{ .Release.Namespace }}.
+
+Компоненти:
+  - frontend : {{ include "items-app.frontend.fullname" . }} ({{ .Values.frontend.replicaCount }} репл.)
+  - api      : {{ include "items-app.api.fullname" . }} ({{ .Values.api.replicaCount }} репл., Service {{ .Values.api.service.type }})
+  - db       : {{ include "items-app.db.fullname" . }} (StatefulSet + PVC {{ .Values.db.persistence.size }})
+  - міграції : Job {{ include "items-app.db.fullname" . }}-migration-{{ .Release.Revision }}
+{{- if .Values.ingress.enabled }}
+
+Застосунок:  http://{{ .Values.ingress.host }}/
+API:         http://{{ .Values.ingress.host }}/api/items
+{{- end }}
+Swagger UI:  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "items-app.api.fullname" . }} 8080:{{ .Values.api.service.port }}  ->  http://localhost:8080/docs
+
+Перевірка:  helm test {{ .Release.Name }} -n {{ .Release.Namespace }} --logs

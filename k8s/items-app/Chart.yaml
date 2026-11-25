@@ -1,0 +1,10 @@
+apiVersion: v2
+name: items-app
+description: Items — розподілене рішення (frontend + FastAPI backend + PostgreSQL + міграції) для Kubernetes
+type: application
+# Версія чарта (SemVer) та версія застосунку беруться звідси
+version: 0.1.0
+appVersion: "2.0.0"
+keywords: [fastapi, postgresql, nginx, lab]
+maintainers:
+  - name: Siketin Dmytro

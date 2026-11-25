@@ -1,0 +1,28 @@
+# Шаблон обробляється envsubst під час старту офіційного образу nginx.
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    location = /config.js {
+        add_header Cache-Control "no-store";
+    }
+
+    # Проксі до backend: корисно при доступі через port-forward / docker compose.
+    # У Kubernetes запити /api зазвичай маршрутизує Ingress напряму до API.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
