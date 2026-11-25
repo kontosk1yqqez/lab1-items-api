@@ -1,0 +1,56 @@
+# CustomResourceDefinition: власний тип DatabaseBackup (група backup.example.com)
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: databasebackups.backup.example.com
+spec:
+  group: backup.example.com
+  scope: Namespaced
+  names:
+    kind: DatabaseBackup
+    singular: databasebackup
+    plural: databasebackups
+    shortNames: [dbb]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [schedule, connectionSecretName, backupPVCName]
+              properties:
+                schedule:
+                  type: string
+                  minLength: 1
+                  description: Розклад у форматі cron, напр. "0 2 * * *"
+                timeZone:
+                  type: string
+                  minLength: 1
+                  default: Etc/UTC
+                  description: Часовий пояс IANA для CronJob.spec.timeZone
+                connectionSecretName:
+                  type: string
+                  minLength: 1
+                  description: Secret з PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD
+                backupPVCName:
+                  type: string
+                  minLength: 1
+                  description: PVC, у який записуються архіви (монтується в /backups)
+      additionalPrinterColumns:
+        - name: Schedule
+          type: string
+          jsonPath: .spec.schedule
+        - name: TimeZone
+          type: string
+          jsonPath: .spec.timeZone
+        - name: PVC
+          type: string
+          jsonPath: .spec.backupPVCName
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

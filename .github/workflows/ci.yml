@@ -63,6 +63,9 @@ jobs:
           - image: items-migrator     # консольний застосунок міграцій (Alembic)
             context: .
             dockerfile: migrator/Dockerfile
+          - image: databasebackup-controller   # контролер DatabaseBackup (ЛР5)
+            context: backup-controller
+            dockerfile: Dockerfile
     uses: ./.github/workflows/docker-pack-n-push.yml
     with:
       repository: ${{ format('{0}/{1}', vars.DOCKERHUB_NAMESPACE || 'kontorsk1yqqez', matrix.image) }}
